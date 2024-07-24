@@ -560,15 +560,15 @@ RelinKeys *RelinKeys_New() {
     return new RelinKeys();
 }
 
-void RelinKeys_Delete(RelinKeys *secret_key) {
-    delete secret_key;
+void RelinKeys_Delete(RelinKeys *relin_keys) {
+    delete relin_keys;
 }
-void RelinKeys_Serialize(RelinKeys *secret_key, std::stringstream *stream) {
-    secret_key->save(*stream);
+void RelinKeys_Serialize(RelinKeys *relin_keys, std::stringstream *stream) {
+    relin_keys->save(*stream);
 }
 
-void RelinKeys_Deserialize(RelinKeys *secret_key, SEALContext *context, std::stringstream *stream) {
-    secret_key->load(*context, *stream);
+void RelinKeys_Deserialize(RelinKeys *relin_keys, SEALContext *context, std::stringstream *stream) {
+    relin_keys->load(*context, *stream);
 }
 
 Ciphertext *Evaluator_DotProduct(Evaluator *evaluator, RelinKeys *relin_keys, GaloisKeys *gal_keys, Ciphertext *a, Ciphertext *b) {
