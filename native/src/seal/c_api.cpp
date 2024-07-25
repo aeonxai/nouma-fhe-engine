@@ -181,6 +181,12 @@ RelinKeys *KeyGenerator_RelinKeys(KeyGenerator *keygen) {
     return relin_keys;
 }
 
+GaloisKeys *KeyGenerator_GaloisKeys(KeyGenerator *keygen) {
+    auto galois_keys = new GaloisKeys();
+    keygen->create_galois_keys(*galois_keys);
+    return galois_keys;
+}
+
 // ========================================================================= //
 // ============================ Encrypt/Decrypt ============================ //
 // ========================================================================= //
@@ -571,20 +577,59 @@ void RelinKeys_Deserialize(RelinKeys *relin_keys, SEALContext *context, std::str
     relin_keys->load(*context, *stream);
 }
 
-Ciphertext *Evaluator_DotProduct(Evaluator *evaluator, RelinKeys *relin_keys, GaloisKeys *gal_keys, Ciphertext *a, Ciphertext *b) {
+GaloisKeys *GaloisKeys_New() {
+    return new GaloisKeys();
+}
+
+void GaloisKeys_Delete(GaloisKeys *gal_keys) {
+    delete gal_keys;
+}
+void GaloisKeys_Serialize(GaloisKeys *gal_keys, std::stringstream *stream) {
+    gal_keys->save(*stream);
+}
+
+void GaloisKeys_Deserialize(GaloisKeys *gal_keys, SEALContext *context, std::stringstream *stream) {
+    gal_keys->load(*context, *stream);
+}
+
+Ciphertext *DotProduct(Evaluator *evaluator, RelinKeys *relin_keys, GaloisKeys *gal_keys, Ciphertext *a, Ciphertext *b) {
     auto c = new Ciphertext();
 
-    evaluator.multiply(a, b, c);
+    evaluator->multiply(*a, *b, *c);
 
-    evaluator.relinearize_inplace(c, relin_keys);
+    evaluator->relinearize_inplace(*c, *relin_keys);
 
     Ciphertext rotated;
     for (int i = 0; i < kPolyModulusDegreePower; i++) {
-        evaluator.rotate_vector(cipher, pow(2, i), gal_keys, rotated);
-        evaluator.add_inplace(cipher, rotated);
+        evaluator->rotate_vector(*c, pow(2, i), *gal_keys, rotated);
+        evaluator->add_inplace(*c, rotated);
     }
 
     return c;
+}
+
+void DotProduct_(Evaluator *evaluator, RelinKeys *relin_keys, GaloisKeys *gal_keys, Ciphertext *a, Ciphertext *b, Ciphertext *c) {
+
+    evaluator->multiply(*a, *b, *c);
+
+    evaluator->relinearize_inplace(*c, *relin_keys);
+
+    Ciphertext rotated;
+    for (int i = 0; i < kPolyModulusDegreePower; i++) {
+        evaluator->rotate_vector(*c, pow(2, i), *gal_keys, rotated);
+        evaluator->add_inplace(*c, rotated);
+    }
+
+}
+
+CiphertextList *Evaluator_DotProduct(Evaluator *evaluator, RelinKeys *relin_keys, GaloisKeys *gal_keys, CiphertextList *a, CiphertextList *b) {
+    auto size = a->size();
+    auto c = new CiphertextList(size);
+    for (int i = 0; i < size; ++i) {
+        DotProduct_(evaluator, relin_keys, gal_keys, &(*a)[i], &(*b)[i], &(*c)[i]);
+    }
+    return c;
+
 }
 
 

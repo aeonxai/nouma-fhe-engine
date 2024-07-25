@@ -19,7 +19,7 @@ import numpy as np
 # lib = ctypes.cdll.LoadLibrary(dll_path)
 
 lib = ctypes.cdll.LoadLibrary(os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, "lib", "SEAL-4.1.2", "build", "lib", "libseal.so")))
+    os.path.join(os.path.dirname(__file__), os.pardir, "build", "lib", "libseal.so")))
 
 lib.PlaintextList_Delete.argtypes = (ctypes.c_void_p,)
 lib.PlaintextList_Delete.restype = None
@@ -80,6 +80,9 @@ lib.KeyGenerator_PublicKey.restype = ctypes.c_void_p
 
 lib.KeyGenerator_RelinKeys.argtypes = (ctypes.c_void_p,)
 lib.KeyGenerator_RelinKeys.restype = ctypes.c_void_p
+
+lib.KeyGenerator_GaloisKeys.argtypes = (ctypes.c_void_p,)
+lib.KeyGenerator_GaloisKeys.restype = ctypes.c_void_p
 
 lib.Encryptor_New.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 lib.Encryptor_New.restype = ctypes.c_void_p
@@ -159,6 +162,11 @@ lib.Evaluator_RescaleToNextInplace.restype = None
 lib.Evaluator_ModSwitchToInplace.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 lib.Evaluator_ModSwitchToInplace.restype = None
 
+
+lib.Evaluator_DotProduct.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+lib.Evaluator_DotProduct.restype = ctypes.c_void_p
+
+
 lib.CiphertextList_SetScale.argtypes = (ctypes.c_void_p, ctypes.c_double)
 lib.CiphertextList_SetScale.restype = None
 
@@ -222,9 +230,6 @@ lib.PublicKey_New.restype = ctypes.c_void_p
 lib.RelinKeys_New.argtypes = None
 lib.RelinKeys_New.restype = ctypes.c_void_p
 
-
-lib.example.argtypes = None
-lib.example.restype = None
 
 class PlaintextList:
     def __init__(self, pointer, size) -> None:
@@ -391,6 +396,27 @@ class RelinKeys:
     def __del__(self):
         lib.RelinKeys_Delete(self.pointer)
 
+class GaloisKeys:
+    def __init__(self, pointer) -> None:
+        self.pointer = pointer
+
+    @classmethod
+    def new(cls):
+        return cls(lib.GaloisKeys_New())
+
+    def serialize(self):
+        stream = StringStream.new()
+        lib.GaloisKeys_Serialize(self.pointer, stream.pointer)
+        return stream.read()
+
+    @classmethod
+    def deserialize(cls, context: SEALContext, data: bytes):
+        raise NotImplemented
+
+    def __del__(self):
+        # lib.GaloisKeys_Delete(self.pointer)
+        pass
+
 
 class KeyGenerator:
     def __init__(self, context: SEALContext) -> None:
@@ -404,6 +430,9 @@ class KeyGenerator:
 
     def relin_keys(self):
         return RelinKeys(lib.KeyGenerator_RelinKeys(self.pointer))
+    
+    def galois_keys(self):
+        return GaloisKeys(lib.KeyGenerator_GaloisKeys(self.pointer))
 
     def __del__(self):
         lib.KeyGenerator_Delete(self.pointer)
@@ -516,6 +545,14 @@ class Evaluator:
     def mod_switch_to_inplace(self, destination: CiphertextList, source: CiphertextList):
         lib.Evaluator_ModSwitchToInplace(self.pointer, destination.pointer, source.pointer)
         return destination
+    
+    def dot_product(self, relin_keys: RelinKeys, gal_keys: GaloisKeys, a: CiphertextList, b: PlaintextList):
+        if a.size != b.size:
+            raise ValueError("a and b must have the same size in evaluator dot product expression")
+        return CiphertextList(
+            lib.Evaluator_DotProduct(self.pointer, relin_keys.pointer, gal_keys.pointer, a.pointer, b.pointer),
+            a.size
+        )
 
     def __del__(self):
         lib.Evaluator_Delete(self.pointer)
