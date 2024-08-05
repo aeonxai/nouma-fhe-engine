@@ -305,6 +305,7 @@ class SEALContext:
     def __del__(self) -> None:
         lib.SEALContext_Delete(self.pointer)
 
+Context = SEALContext
 
 class CKKSEncoder:
     def __init__(self, context) -> None:
